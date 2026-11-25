@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -116,17 +118,158 @@ def list_adb_devices() -> list[tuple[str, str]]:
     return devices
 
 
-def connect_wifi_adb(address: str) -> str:
-    """Connect to an Android device over TCP/IP (`ip:port`)."""
+@dataclass(slots=True)
+class TailscalePeer:
+    """Represents a peer discovered in the user's Tailscale network."""
+
+    hostname: str
+    dns_name: str
+    ipv4: str
+    os_name: str
+    online: bool
+
+
+def find_tailscale_binary() -> str | None:
+    """Locate the `tailscale` CLI executable on Windows, Linux, or macOS."""
+    found = shutil.which("tailscale")
+    if found:
+        return found
+
+    candidates = [
+        Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Tailscale" / "tailscale.exe",
+        Path("/Applications/Tailscale.app/Contents/MacOS/Tailscale"),
+        Path("/usr/bin/tailscale"),
+    ]
+    for path in candidates:
+        if path.is_file():
+            return str(path)
+    return None
+
+
+def parse_tailscale_status_json(raw_json: str) -> list[TailscalePeer]:
+    """Parse `tailscale status --json` output into a sorted list of peers."""
+    if not raw_json.strip():
+        return []
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError:
+        return []
+
+    peers_map = data.get("Peer") or {}
+    peers: list[TailscalePeer] = []
+    for info in peers_map.values():
+        ips = info.get("TailscaleIPs") or []
+        ipv4 = next((ip for ip in ips if "." in ip), "")
+        if not ipv4:
+            continue
+        peers.append(
+            TailscalePeer(
+                hostname=info.get("HostName") or ipv4,
+                dns_name=(info.get("DNSName") or "").rstrip("."),
+                ipv4=ipv4,
+                os_name=(info.get("OS") or "unknown").lower(),
+                online=bool(info.get("Online", False)),
+            )
+        )
+
+    # Prioritize Android devices, then online status, then hostname
+    peers.sort(key=lambda p: (p.os_name != "android", not p.online, p.hostname.lower()))
+    return peers
+
+
+def list_tailscale_peers() -> list[TailscalePeer]:
+    """Query local Tailscale daemon for reachable peers in the tailnet."""
+    ts = find_tailscale_binary()
+    if not ts:
+        return []
+    try:
+        proc = subprocess.run(
+            [ts, "status", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except OSError:
+        return []
+    if proc.returncode != 0:
+        return []
+    return parse_tailscale_status_json(proc.stdout)
+
+
+def is_remote_adb_target(target: str) -> bool:
+    """Return True if target looks like an IP:port, IPv4, or MagicDNS hostname."""
+    cleaned = target.strip()
+    if not cleaned:
+        return False
+    return ":" in cleaned or "." in cleaned
+
+
+def normalize_remote_adb_target(target: str, default_port: int = 5555) -> str:
+    """Append `:5555` to bare IPv4/MagicDNS targets; leave USB serials untouched."""
+    cleaned = target.strip()
+    if not cleaned:
+        return ""
+    if ":" in cleaned:
+        return cleaned
+    if "." in cleaned:
+        return f"{cleaned}:{default_port}"
+    return cleaned
+
+
+def enable_tcpip_mode(serial: str = "", port: int = 5555) -> str:
+    """Switch a USB-connected Android device to listen for ADB over TCP/IP."""
     adb = _ensure_adb_in_path()
+    cmd = [adb]
+    if serial.strip():
+        cmd.extend(["-s", serial.strip()])
+    cmd.extend(["tcpip", str(port)])
     proc = subprocess.run(
-        [adb, "connect", address.strip()],
+        cmd,
         capture_output=True,
         text=True,
-        timeout=10,
+        timeout=15,
         check=False,
     )
     return (proc.stdout or proc.stderr).strip()
+
+
+def connect_remote_adb(address: str, retries: int = 2) -> str:
+    """Connect (and recover from offline state) to an Android device over LAN or Tailscale."""
+    adb = _ensure_adb_in_path()
+    normalized = normalize_remote_adb_target(address)
+    if not normalized:
+        raise ValueError("Remote ADB address cannot be empty.")
+
+    # Clear stale offline ADB TCP entries before reconnecting
+    for dev_serial, status in list_adb_devices():
+        if dev_serial == normalized and status != "device":
+            subprocess.run(
+                [adb, "disconnect", normalized],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+
+    last_output = ""
+    for attempt in range(retries):
+        proc = subprocess.run(
+            [adb, "connect", normalized],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        last_output = (proc.stdout or proc.stderr).strip()
+        if "connected to" in last_output.lower() or "already connected" in last_output.lower():
+            return last_output
+        if attempt < retries - 1:
+            time.sleep(1.0)
+    return last_output
+
+
+connect_wifi_adb = connect_remote_adb
 
 
 class UiautomatorDriver:
@@ -138,13 +281,14 @@ class UiautomatorDriver:
         self._active_package = ""
 
     def connect(self, serial: str = "") -> str:
-        """Connect to a specific serial/IP:port or the first online ADB device."""
+        """Connect to a USB serial, LAN IP:port, or Tailscale IP/MagicDNS device."""
         _ensure_adb_in_path()
         import uiautomator2 as u2
 
-        target = serial.strip()
-        if target and ":" in target:
-            connect_wifi_adb(target)
+        raw_target = serial.strip()
+        target = normalize_remote_adb_target(raw_target) if raw_target else ""
+        if target and is_remote_adb_target(target):
+            connect_remote_adb(target)
 
         if target:
             self._device = u2.connect(target)
@@ -153,7 +297,7 @@ class UiautomatorDriver:
             if not devices:
                 raise RuntimeError(
                     "No Android device in `device` state found. "
-                    "Enable USB Debugging (or Wireless ADB) and check `adb devices`."
+                    "Enable USB Debugging (or Wireless/Tailscale ADB) and check `adb devices`."
                 )
             target = devices[0]
             self._device = u2.connect(target)

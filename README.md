@@ -45,7 +45,14 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-> **Note on `adb`:** `adbutils` bundles the `adb` binary inside `.venv`, so USB and Wi-Fi ADB connections work out of the box without installing Android Studio.
+> **Note on `adb`:** `adbutils` bundles the `adb` binary inside `.venv`, so USB, LAN Wi-Fi, and Tailscale ADB connections work out of the box without installing Android Studio.
+
+### 3. Remote Connection over Tailscale (Optional)
+If your secondary server and Android phone are on different networks:
+1. Install **Tailscale** on both the server and the Android phone and sign in to the same tailnet.
+2. Disable battery optimization for the Tailscale app on Android so the VPN stays active while the screen is off.
+3. Plug the phone in via USB once -> open **4. Schedule, unlock PIN & ADB settings** -> **Enable ADB TCP/IP 5555 on USB device (for Tailscale)** (then unplug USB). *(Alternatively, enable Android Wireless Debugging and use its shown port).*
+4. Choose **Connect via Tailscale (pick Android peer)** in Settings — the app automatically detects Android peers in your tailnet (`100.x.y.z:5555`) and recovers stale offline TCP connections before each run.
 
 ---
 
