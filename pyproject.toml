@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tiktok-streak-tui"
+version = "0.1.0"
+description = "Personal Android TikTok streak auto-messenger with simple Up/Down Terminal Menu via ADB/uiautomator2"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "questionary>=2.1.0",
+    "rich>=13.0.0",
+    "uiautomator2>=3.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[project.scripts]
+tiktok-streak = "tiktok_streak.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
