@@ -25,10 +25,11 @@ class ScriptedPromptBackend:
         if not self._actions:
             return None
         target = self._actions.pop(0)
-        # Allow script to match by Choice.value or partial Choice.title
+        # Prefer exact match on Choice.value before falling back to Choice.title substring
         for ch in choices:
             if ch.value == target:
                 return ch.value
+        for ch in choices:
             if isinstance(target, str) and isinstance(ch.title, str) and target in ch.title:
                 return ch.value
         return target
@@ -46,7 +47,7 @@ class ScriptedPromptBackend:
     def confirm(self, message: str, default: bool = False) -> bool:
         return True
 
-    def pause(self, message: str = "Nhấn Enter để tiếp tục...") -> None:
+    def pause(self, message: str = "Press Enter to continue...") -> None:
         pass
 
 
@@ -58,7 +59,7 @@ def test_simple_menu_scan_toggle_add_template_and_dry_run(tmp_path: Path) -> Non
     # Scripted flow:
     # 1. Main -> "scan"
     # 2. Main -> "contacts" -> toggle "Linh Chi" -> "back"
-    # 3. Main -> "templates" -> "add" ("Chào buổi tối {name}!") -> "back"
+    # 3. Main -> "templates" -> "add" ("Good evening {name}!") -> "back"
     # 4. Main -> "schedule" -> set "unlock_pin" ("2580") -> "test_unlock" -> "back"
     # 5. Main -> "run_dry"
     # 6. Main -> "exit"
@@ -67,10 +68,10 @@ def test_simple_menu_scan_toggle_add_template_and_dry_run(tmp_path: Path) -> Non
             "scan",
             "contacts",
             "Linh Chi",
-            "⬅️  Quay lại menu chính",
+            "<- Back to main menu",
             "templates",
-            "➕ Viết câu nhắn mới",
-            "⬅️  Quay lại menu chính",
+            "+ Add new message template",
+            "<- Back to main menu",
             "schedule",
             "unlock_pin",
             "test_unlock",
@@ -78,7 +79,7 @@ def test_simple_menu_scan_toggle_add_template_and_dry_run(tmp_path: Path) -> Non
             "run_dry",
             "exit",
         ],
-        texts=["Chào buổi tối {name}!", "2580"],
+        texts=["Good evening {name}!", "2580"],
     )
 
     try:
@@ -91,7 +92,7 @@ def test_simple_menu_scan_toggle_add_template_and_dry_run(tmp_path: Path) -> Non
         assert contacts["Tuấn Anh"].selected is False
 
         templates = [t.content for t in db.list_templates()]
-        assert "Chào buổi tối {name}!" in templates
+        assert "Good evening {name}!" in templates
 
         assert db.get_schedule().unlock_pin == "2580"
         assert "2580" in driver.unlock_pins_seen

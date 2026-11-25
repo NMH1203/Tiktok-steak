@@ -19,8 +19,9 @@ from tiktok_streak.xml_parser import (
     parse_inbox_conversations,
 )
 
-INBOX_TAB_LABELS = ("Hộp thư", "Inbox")
-SEND_BUTTON_LABELS = ("Gửi", "Send")
+# Keep both English and Vietnamese TikTok UI labels for device compatibility
+INBOX_TAB_LABELS = ("Inbox", "Hộp thư")
+SEND_BUTTON_LABELS = ("Send", "Gửi")
 
 
 class CaptchaDetectedError(RuntimeError):
@@ -49,12 +50,12 @@ class TikTokStreakBot:
         matched = detect_captcha_or_block(xml_text)
         if matched:
             raise CaptchaDetectedError(
-                f"Phát hiện màn hình xác minh/CAPTCHA ('{matched}'). Dừng tự động để bảo vệ tài khoản."
+                f"Verification/CAPTCHA screen detected ('{matched}'). Stopping to protect the account."
             )
         login_match = detect_login_required(xml_text)
         if login_match:
             raise LoginRequiredError(
-                f"TikTok yêu cầu đăng nhập/OTP ('{login_match}'). Hãy đăng nhập lại trên điện thoại."
+                f"TikTok requires login/OTP ('{login_match}'). Please log in manually on the phone."
             )
 
     def _dump_and_clear_popups(
@@ -69,8 +70,8 @@ class TikTokStreakBot:
             if not found:
                 break
             label, bounds = found
-            self._emit(cb, f"Phát hiện thông báo/popup ('{label}'), đang tự động tắt...")
-            self.storage.add_log("SYSTEM", "", "POPUP_DISMISSED", f"Đã tắt nút '{label}'")
+            self._emit(cb, f"Popup/prompt detected ('{label}'), dismissing automatically...")
+            self.storage.add_log("SYSTEM", "", "POPUP_DISMISSED", f"Dismissed '{label}'")
             self.driver.tap_bounds(bounds)
             self.driver.sleep(1.0)
             xml = self.driver.dump_xml()
@@ -80,11 +81,11 @@ class TikTokStreakBot:
     def _navigate_to_inbox(self, cb: ProgressCallback | None = None) -> str:
         """Open TikTok, navigate to the Inbox tab, and return the Inbox XML."""
         cfg = self.storage.get_schedule()
-        self._emit(cb, "Đang kết nối thiết bị Android...")
+        self._emit(cb, "Connecting to Android device...")
         serial = self.driver.connect(cfg.device_serial)
-        self._emit(cb, f"Đã kết nối: {serial}. Đang bật & mở khóa màn hình...")
+        self._emit(cb, f"Connected: {serial}. Waking and unlocking screen...")
         self.driver.ensure_screen_unlocked(cfg.unlock_pin)
-        self._emit(cb, "Đang mở ứng dụng TikTok...")
+        self._emit(cb, "Launching TikTok app...")
         self.driver.open_tiktok()
 
         xml = self._dump_and_clear_popups(cb)
@@ -97,7 +98,7 @@ class TikTokStreakBot:
             inbox_bounds = find_node_bounds_by_labels(xml, INBOX_TAB_LABELS)
 
         if inbox_bounds:
-            self._emit(cb, "Đang chuyển sang tab Hộp thư (Inbox)...")
+            self._emit(cb, "Opening Inbox tab...")
             self.driver.tap_bounds(inbox_bounds)
             self.driver.sleep(2.0)
             xml = self._dump_and_clear_popups(cb)
@@ -117,7 +118,7 @@ class TikTokStreakBot:
                     collected[row.display_name] = row
             self._emit(
                 cb,
-                f"Lần quét {scroll_idx + 1}/{max_scrolls + 1}: nhận diện {len(collected)} hội thoại.",
+                f"Scan {scroll_idx + 1}/{max_scrolls + 1}: found {len(collected)} conversations.",
             )
             if scroll_idx < max_scrolls:
                 self.driver.swipe_up()
@@ -128,7 +129,7 @@ class TikTokStreakBot:
             contact_name="SYSTEM",
             message="",
             status="SCAN",
-            detail=f"Quét được {len(collected)} hội thoại từ TikTok Inbox.",
+            detail=f"Scanned {len(collected)} conversations from TikTok Inbox.",
         )
         return saved
 
@@ -163,7 +164,7 @@ class TikTokStreakBot:
             xml = self._dump_and_clear_popups(cb)
             input_bounds = find_chat_input_bounds(xml)
         if not input_bounds:
-            raise RuntimeError("Không tìm thấy ô nhập tin nhắn (EditText) trong khung chat.")
+            raise RuntimeError("Message input field (EditText) not found inside chat.")
 
         if dry_run:
             return
@@ -176,7 +177,7 @@ class TikTokStreakBot:
         xml_after_type = self._dump_and_clear_popups(cb)
         send_bounds = find_node_bounds_by_labels(xml_after_type, SEND_BUTTON_LABELS)
         if not send_bounds:
-            raise RuntimeError("Đã nhập tin nhắn nhưng không tìm thấy nút Gửi (Send).")
+            raise RuntimeError("Typed message but Send button was not found.")
 
         self.driver.tap_bounds(send_bounds)
         self.driver.sleep(1.0)
@@ -195,7 +196,7 @@ class TikTokStreakBot:
 
         contacts = self.storage.list_contacts(selected_only=True)
         if not contacts:
-            self._emit(cb, "Chưa có người nhận nào được chọn.")
+            self._emit(cb, "No contacts selected.")
             return []
 
         results: list[SendLog] = []
@@ -207,10 +208,10 @@ class TikTokStreakBot:
             for idx, contact in enumerate(contacts):
                 if only_unsent_today and not effective_dry_run and contact.last_sent_date == today_str:
                     log = self.storage.add_log(
-                        contact.display_name, "", "SKIPPED", "Đã gửi hôm nay rồi."
+                        contact.display_name, "", "SKIPPED", "Already sent today."
                     )
                     results.append(log)
-                    self._emit(cb, f"Bỏ qua {contact.display_name} (đã giữ chuỗi hôm nay).")
+                    self._emit(cb, f"Skipped {contact.display_name} (already sent today).")
                     continue
 
                 msg = self.storage.pick_random_template(
@@ -218,13 +219,13 @@ class TikTokStreakBot:
                 )
                 if not msg:
                     log = self.storage.add_log(
-                        contact.display_name, "", "ERROR", "Không có câu nhắn nào đang bật."
+                        contact.display_name, "", "ERROR", "No enabled message templates."
                     )
                     results.append(log)
-                    self._emit(cb, "Dừng: không có mẫu câu nhắn nào đang bật.")
+                    self._emit(cb, "Stopped: no enabled message templates.")
                     break
 
-                self._emit(cb, f"[{idx + 1}/{len(contacts)}] Đang mở chat với {contact.display_name}...")
+                self._emit(cb, f"[{idx + 1}/{len(contacts)}] Opening chat with {contact.display_name}...")
                 try:
                     # Reset back to top of Inbox if not the first item
                     if idx > 0:
@@ -240,10 +241,10 @@ class TikTokStreakBot:
                             contact.display_name,
                             msg,
                             "ERROR",
-                            "Không tìm thấy cuộc trò chuyện trong Hộp thư.",
+                            "Conversation not found in Inbox.",
                         )
                         results.append(log)
-                        self._emit(cb, f"Lỗi: Không thấy {contact.display_name} trong Hộp thư.")
+                        self._emit(cb, f"Error: {contact.display_name} not found in Inbox.")
                         continue
 
                     self._send_to_opened_chat(msg, dry_run=effective_dry_run, cb=cb)
@@ -253,13 +254,13 @@ class TikTokStreakBot:
                             contact.display_name,
                             msg,
                             "DRY_RUN",
-                            "Chạy thử: đã kiểm tra ô chat, chưa bấm gửi.",
+                            "Dry-run: verified chat input, did not tap Send.",
                         )
                         self._emit(cb, f"[DRY-RUN] {contact.display_name} <- \"{msg}\"")
                     else:
                         self.storage.mark_contact_sent(contact.display_name, today_str)
                         log = self.storage.add_log(
-                            contact.display_name, msg, "SUCCESS", "Đã gửi thành công."
+                            contact.display_name, msg, "SUCCESS", "Sent successfully."
                         )
                         self._emit(cb, f"[OK] {contact.display_name} <- \"{msg}\"")
                     results.append(log)
@@ -271,28 +272,28 @@ class TikTokStreakBot:
                         contact.display_name, msg, "ERROR", str(exc)
                     )
                     results.append(log)
-                    self._emit(cb, f"[LỖI] {contact.display_name}: {exc}")
+                    self._emit(cb, f"[ERROR] {contact.display_name}: {exc}")
                 finally:
                     # Return to Inbox list before next contact
                     self.driver.press_back()
 
                 if idx < len(contacts) - 1:
                     delay = random.uniform(cfg.min_delay_sec, cfg.max_delay_sec)
-                    self._emit(cb, f"Chờ {delay:.1f}s trước người tiếp theo...")
+                    self._emit(cb, f"Waiting {delay:.1f}s before next contact...")
                     self.driver.sleep(delay)
 
         except CaptchaDetectedError as exc:
             log = self.storage.add_log("SYSTEM", "", "CAPTCHA_STOP", str(exc))
             results.append(log)
-            self._emit(cb, f"DỪNG KHẨN CẤP: {exc}")
+            self._emit(cb, f"EMERGENCY STOP: {exc}")
         except LoginRequiredError as exc:
             log = self.storage.add_log("SYSTEM", "", "LOGIN_REQUIRED", str(exc))
             results.append(log)
-            self._emit(cb, f"DỪNG: {exc}")
+            self._emit(cb, f"STOPPED: {exc}")
         finally:
             if connected and cfg.auto_lock_after_run:
                 try:
-                    self._emit(cb, "Đang tắt & khóa lại màn hình điện thoại...")
+                    self._emit(cb, "Turning off and locking phone screen...")
                     self.driver.lock_screen()
                 except Exception:
                     pass
@@ -302,11 +303,11 @@ class TikTokStreakBot:
     def test_unlock(self, cb: ProgressCallback | None = None) -> str:
         """Connect to device and test waking/unlocking the screen without opening TikTok."""
         cfg = self.storage.get_schedule()
-        self._emit(cb, "Đang kết nối thiết bị Android...")
+        self._emit(cb, "Connecting to Android device...")
         serial = self.driver.connect(cfg.device_serial)
-        self._emit(cb, f"Đã kết nối {serial}. Thử bật & mở khóa màn hình...")
+        self._emit(cb, f"Connected to {serial}. Testing wake & unlock...")
         self.driver.ensure_screen_unlocked(cfg.unlock_pin)
-        self._emit(cb, "Màn hình đã mở khóa thành công!")
+        self._emit(cb, "Screen unlocked successfully!")
         return serial
 
     def dump_debug_xml(self, output_dir: str | Path = "debug_dumps") -> Path:

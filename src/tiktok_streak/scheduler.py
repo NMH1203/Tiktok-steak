@@ -16,10 +16,10 @@ def parse_target_hm(target_time: str) -> tuple[int, int]:
     """Parse `HH:MM` string into `(hour, minute)` with validation."""
     parts = target_time.strip().split(":")
     if len(parts) != 2:
-        raise ValueError(f"Giờ chạy không hợp lệ: '{target_time}' (cần định dạng HH:MM)")
+        raise ValueError(f"Invalid target time: '{target_time}' (expected HH:MM)")
     hour, minute = int(parts[0]), int(parts[1])
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
-        raise ValueError(f"Giờ chạy ngoài phạm vi 00:00-23:59: '{target_time}'")
+        raise ValueError(f"Target time out of range 00:00-23:59: '{target_time}'")
     return hour, minute
 
 
@@ -90,7 +90,7 @@ class StreakScheduler:
         today_str = ref.strftime("%Y-%m-%d")
         self.last_run_date = today_str
         if self.on_status:
-            self.on_status(f"Đến giờ chạy tự động ({ref.strftime('%H:%M:%S')})...")
+            self.on_status(f"Scheduled run triggered ({ref.strftime('%H:%M:%S')})...")
 
         self.bot.run_streak_batch(cb=self.on_status)
 
@@ -110,5 +110,5 @@ class StreakScheduler:
                 await asyncio.to_thread(self.tick_sync)
             except Exception as exc:
                 if self.on_status:
-                    self.on_status(f"Lỗi scheduler: {exc}")
+                    self.on_status(f"Scheduler error: {exc}")
             await asyncio.sleep(poll_seconds)

@@ -82,8 +82,8 @@ def _ensure_adb_in_path() -> str:
     adb = find_adb_binary()
     if not adb:
         raise RuntimeError(
-            "Không tìm thấy `adb`. Hãy cài Android Platform Tools và thêm vào PATH "
-            "hoặc đặt thư mục `platform-tools/` ngay trong thư mục dự án."
+            "`adb` executable not found. Install Android Platform Tools and add it to PATH "
+            "or place `platform-tools/` in the project root."
         )
     adb_dir = str(Path(adb).parent)
     current_path = os.environ.get("PATH", "")
@@ -152,8 +152,8 @@ class UiautomatorDriver:
             devices = [s for s, st in list_adb_devices() if st == "device"]
             if not devices:
                 raise RuntimeError(
-                    "Chưa có thiết bị Android nào ở trạng thái `device`. "
-                    "Hãy bật USB Debugging (hoặc Wireless ADB) rồi kiểm tra `adb devices`."
+                    "No Android device in `device` state found. "
+                    "Enable USB Debugging (or Wireless ADB) and check `adb devices`."
                 )
             target = devices[0]
             self._device = u2.connect(target)
@@ -164,7 +164,7 @@ class UiautomatorDriver:
     @property
     def device(self):
         if self._device is None:
-            raise RuntimeError("Chưa kết nối tới thiết bị Android.")
+            raise RuntimeError("Not connected to an Android device.")
         return self._device
 
     def is_screen_locked(self) -> bool:
@@ -200,8 +200,8 @@ class UiautomatorDriver:
 
         if not pin:
             raise RuntimeError(
-                "Màn hình đang khóa bằng PIN/Mật khẩu. "
-                "Hãy nhập mã PIN mở khóa trong menu Cài đặt (mục 4) hoặc đặt khóa máy thành Vuốt/Không khóa."
+                "Screen is locked with a PIN/Password. "
+                "Set the unlock PIN in Settings (option 4) or switch the device lock to Swipe/None."
             )
 
         d.shell(["input", "text", pin])
@@ -218,7 +218,7 @@ class UiautomatorDriver:
 
         if self.is_screen_locked():
             raise RuntimeError(
-                "Không thể mở khóa điện thoại (sai mã PIN hoặc máy đang dùng khóa Hình vẽ/Sinh trắc học)."
+                "Failed to unlock phone (incorrect PIN or device uses Pattern/Biometric lock)."
             )
 
     def lock_screen(self) -> None:
@@ -238,7 +238,7 @@ class UiautomatorDriver:
                 time.sleep(3.0)
                 return pkg
         raise RuntimeError(
-            "Không tìm thấy ứng dụng TikTok (`com.ss.android.ugc.trill` hoặc `com.zhiliaoapp.musically`) trên máy."
+            "TikTok app (`com.ss.android.ugc.trill` or `com.zhiliaoapp.musically`) not found on device."
         )
 
     def dump_xml(self) -> str:

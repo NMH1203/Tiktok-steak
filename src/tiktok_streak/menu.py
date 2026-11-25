@@ -42,7 +42,7 @@ class PromptBackend(Protocol):
     def text(self, message: str, default: str = "") -> str | None: ...
     def password(self, message: str) -> str | None: ...
     def confirm(self, message: str, default: bool = False) -> bool: ...
-    def pause(self, message: str = "Nhấn Enter để tiếp tục...") -> None: ...
+    def pause(self, message: str = "Press Enter to continue...") -> None: ...
 
 
 class QuestionaryBackend:
@@ -54,7 +54,7 @@ class QuestionaryBackend:
             choices=choices,
             default=default,
             style=MENU_STYLE,
-            instruction="(Dùng ↑/↓ di chuyển, Enter để chọn)",
+            instruction="(Use ↑/↓ to move, Enter to select)",
             use_indicator=True,
         ).ask()
 
@@ -75,7 +75,7 @@ class QuestionaryBackend:
         ans = questionary.confirm(message, default=default, style=MENU_STYLE).ask()
         return bool(ans)
 
-    def pause(self, message: str = "Nhấn Enter để tiếp tục...") -> None:
+    def pause(self, message: str = "Press Enter to continue...") -> None:
         questionary.press_any_key_to_continue(message=message, style=MENU_STYLE).ask()
 
 
@@ -110,18 +110,18 @@ class SimpleTerminalMenu:
         adb_bin = find_adb_binary()
         if adb_bin:
             devs = list_adb_devices()
-            dev_txt = ", ".join(f"{s}({st})" for s, st in devs) if devs else "Chưa cắm máy"
+            dev_txt = ", ".join(f"{s}({st})" for s, st in devs) if devs else "No device connected"
         else:
-            dev_txt = "Chưa có adb"
+            dev_txt = "adb not found"
 
-        sched_txt = f"BẬT ({cfg.target_time} ±{cfg.jitter_minutes}p)" if cfg.enabled else "TẮT"
+        sched_txt = f"ON ({cfg.target_time} ±{cfg.jitter_minutes}m)" if cfg.enabled else "OFF"
         self.console.print()
         self.console.rule("[bold cyan]TikTok Streak Auto (Android + Terminal)[/bold cyan]")
         self.console.print(
-            f"  [bold]Thiết bị ADB:[/bold] {dev_txt}  |  "
-            f"[bold]Đang chọn:[/bold] {selected_cnt}/{len(contacts)} người  |  "
-            f"[bold]Câu nhắn bật:[/bold] {tpl_cnt}  |  "
-            f"[bold]Lịch tự động:[/bold] {sched_txt}"
+            f"  [bold]ADB Device:[/bold] {dev_txt}  |  "
+            f"[bold]Selected:[/bold] {selected_cnt}/{len(contacts)} contacts  |  "
+            f"[bold]Active templates:[/bold] {tpl_cnt}  |  "
+            f"[bold]Schedule:[/bold] {sched_txt}"
         )
         self.console.print()
 
@@ -134,22 +134,22 @@ class SimpleTerminalMenu:
             tpl_cnt = len(self.storage.list_templates(enabled_only=True))
 
             action = self.prompts.select(
-                "Chọn chức năng:",
+                "Select an action:",
                 choices=[
-                    Choice("1. Quét danh sách người từ TikTok Inbox", "scan"),
-                    Choice(f"2. Chọn người giữ chuỗi (đang chọn: {selected_cnt})", "contacts"),
-                    Choice(f"3. Viết & quản lý câu nhắn random ({tpl_cnt} câu đang bật)", "templates"),
-                    Choice("4. Cài đặt giờ chạy & thiết bị ADB", "schedule"),
-                    Choice("5. Chạy thử ngay (Dry-run - không bấm gửi)", "run_dry"),
-                    Choice("6. Chạy gửi thật ngay", "run_live"),
-                    Choice("7. Xem nhật ký gần đây", "logs"),
-                    Choice("8. Bật chạy ngầm tự động (Daemon 24/7)", "daemon"),
-                    Choice("0. Thoát", "exit"),
+                    Choice("1. Scan contacts from TikTok Inbox", "scan"),
+                    Choice(f"2. Select streak contacts (selected: {selected_cnt})", "contacts"),
+                    Choice(f"3. Write & manage random messages ({tpl_cnt} active)", "templates"),
+                    Choice("4. Schedule, unlock PIN & ADB settings", "schedule"),
+                    Choice("5. Run Dry-run now (no actual send)", "run_dry"),
+                    Choice("6. Send streak messages now", "run_live"),
+                    Choice("7. View recent logs", "logs"),
+                    Choice("8. Start 24/7 background daemon", "daemon"),
+                    Choice("0. Exit", "exit"),
                 ],
             )
 
             if action is None or action == "exit":
-                self.console.print("[cyan]Tạm biệt![/cyan]")
+                self.console.print("[cyan]Goodbye![/cyan]")
                 break
 
             handlers: dict[str, Callable[[], None]] = {
@@ -169,14 +169,14 @@ class SimpleTerminalMenu:
     # --- Menu Handlers ---
 
     def _handle_scan(self) -> None:
-        self.console.print("\n[yellow]Đang quét danh sách hội thoại trên TikTok...[/yellow]")
+        self.console.print("\n[yellow]Scanning conversations on TikTok...[/yellow]")
         try:
             contacts = self.bot.scan_inbox(
                 max_scrolls=4, cb=lambda m: self.console.print(f"  {m}")
             )
-            self.console.print(f"[green]Hoàn tất! Hiện có {len(contacts)} người trong danh sách.[/green]")
+            self.console.print(f"[green]Done! {len(contacts)} contacts saved in list.[/green]")
         except Exception as exc:
-            self.console.print(f"[red]Lỗi khi quét TikTok: {exc}[/red]")
+            self.console.print(f"[red]Scan error: {exc}[/red]")
         self.prompts.pause()
 
     def _handle_contacts_menu(self) -> None:
@@ -184,16 +184,16 @@ class SimpleTerminalMenu:
         while True:
             contacts = self.storage.list_contacts()
             choices: list[Choice] = [
-                Choice("⬅️  Quay lại menu chính", _MenuAction("back")),
-                Choice("➕ Thêm tên người nhận thủ công", _MenuAction("add")),
-                Choice("✅ Chọn tất cả", _MenuAction("select_all")),
-                Choice("⬜ Bỏ chọn tất cả", _MenuAction("deselect_all")),
-                Choice("🗑️  Xóa một người khỏi danh sách", _MenuAction("delete")),
+                Choice("<- Back to main menu", _MenuAction("back")),
+                Choice("+ Add contact manually", _MenuAction("add")),
+                Choice("[✓] Select all", _MenuAction("select_all")),
+                Choice("[ ] Deselect all", _MenuAction("deselect_all")),
+                Choice("x Delete a contact", _MenuAction("delete")),
             ]
             for c in contacts:
                 mark = "[✓]" if c.selected else "[ ]"
                 streak = f" | {c.streak_info}" if c.streak_info else ""
-                sent = f" | Gửi gần nhất: {c.last_sent_date}" if c.last_sent_date else ""
+                sent = f" | Last sent: {c.last_sent_date}" if c.last_sent_date else ""
                 choices.append(
                     Choice(
                         f"{mark} {c.display_name}{streak}{sent}",
@@ -202,7 +202,7 @@ class SimpleTerminalMenu:
                 )
 
             selected = self.prompts.select(
-                "Nhấn Enter vào tên để BẬT/TẮT giữ chuỗi:",
+                "Press Enter on a contact to toggle ON/OFF:",
                 choices=choices,
                 default=cursor_val,
             )
@@ -215,10 +215,10 @@ class SimpleTerminalMenu:
                     self.storage.set_contact_selected(cid, not current.selected)
                     cursor_val = selected
             elif selected.key == "add":
-                name = self.prompts.text("Nhập đúng tên hiển thị trên TikTok Inbox:")
+                name = self.prompts.text("Enter exact display name shown in TikTok Inbox:")
                 if name and name.strip():
                     self.storage.add_manual_contact(name.strip(), selected=True)
-                    self.console.print(f"[green]Đã thêm '{name.strip()}' (đã chọn).[/green]")
+                    self.console.print(f"[green]Added '{name.strip()}' (selected).[/green]")
             elif selected.key == "select_all":
                 self.storage.set_all_contacts_selected(True)
             elif selected.key == "deselect_all":
@@ -231,10 +231,10 @@ class SimpleTerminalMenu:
         contacts = self.storage.list_contacts()
         if not contacts:
             return
-        choices = [Choice("⬅️  Hủy", None)] + [
+        choices = [Choice("<- Cancel", None)] + [
             Choice(c.display_name, c.id) for c in contacts
         ]
-        cid = self.prompts.select("Chọn người muốn xóa khỏi danh sách:", choices=choices)
+        cid = self.prompts.select("Select contact to remove:", choices=choices)
         if cid is not None:
             self.storage.delete_contact(cid)
 
@@ -242,31 +242,31 @@ class SimpleTerminalMenu:
         while True:
             templates = self.storage.list_templates()
             choices: list[Choice] = [
-                Choice("⬅️  Quay lại menu chính", _MenuAction("back")),
-                Choice("➕ Viết câu nhắn mới (hỗ trợ {name})", _MenuAction("add")),
-                Choice("🎲 Xem thử 1 câu random", _MenuAction("preview")),
+                Choice("<- Back to main menu", _MenuAction("back")),
+                Choice("+ Add new message template (supports {name})", _MenuAction("add")),
+                Choice("? Preview a random message", _MenuAction("preview")),
             ]
             for t in templates:
-                status = "BẬT" if t.enabled else "TẮT"
+                status = "ON" if t.enabled else "OFF"
                 choices.append(
                     Choice(f"[{status}] {t.content}", _MenuAction("edit", t.id))
                 )
 
             picked = self.prompts.select(
-                "Chọn câu nhắn để sửa/bật-tắt/xóa, hoặc thêm câu mới:",
+                "Select a template to edit/toggle/delete, or add a new one:",
                 choices=choices,
             )
             if picked is None or picked.key == "back":
                 break
             if picked.key == "add":
-                txt = self.prompts.text("Nhập câu nhắn (dùng {name} để chèn tên người nhận):")
+                txt = self.prompts.text("Enter message text (use {name} for recipient name):")
                 if txt and txt.strip():
                     self.storage.add_template(txt.strip(), enabled=True)
-                    self.console.print("[green]Đã thêm câu nhắn mới.[/green]")
+                    self.console.print("[green]Added new template.[/green]")
             elif picked.key == "preview":
-                sample = self.storage.pick_random_template("Minh", avoid_repeat_last=False)
+                sample = self.storage.pick_random_template("Alex", avoid_repeat_last=False)
                 self.console.print(
-                    f"\n[cyan]Ví dụ random (tên 'Minh'):[/cyan] {sample or '(Chưa có câu nào đang bật)'}\n"
+                    f"\n[cyan]Random preview (name 'Alex'):[/cyan] {sample or '(No enabled templates)'}\n"
                 )
                 self.prompts.pause()
             elif picked.key == "edit":
@@ -278,16 +278,16 @@ class SimpleTerminalMenu:
         if not tpl:
             return
         action = self.prompts.select(
-            f"Thao tác với câu: \"{tpl.content}\"",
+            f"Action for template: \"{tpl.content}\"",
             choices=[
-                Choice("✏️  Sửa nội dung", "edit_text"),
-                Choice("🔁 Đảo trạng thái BẬT / TẮT", "toggle"),
-                Choice("🗑️  Xóa câu này", "delete"),
-                Choice("⬅️  Quay lại", "back"),
+                Choice("Edit content", "edit_text"),
+                Choice("Toggle ON / OFF", "toggle"),
+                Choice("Delete template", "delete"),
+                Choice("<- Back", "back"),
             ],
         )
         if action == "edit_text":
-            new_txt = self.prompts.text("Nội dung mới:", default=tpl.content)
+            new_txt = self.prompts.text("New content:", default=tpl.content)
             if new_txt and new_txt.strip():
                 self.storage.update_template(template_id, content=new_txt.strip())
         elif action == "toggle":
@@ -299,42 +299,42 @@ class SimpleTerminalMenu:
         while True:
             cfg = self.storage.get_schedule()
             choices = [
-                Choice("⬅️  Quay lại menu chính", "back"),
+                Choice("<- Back to main menu", "back"),
                 Choice(
-                    f"Lịch tự động hằng ngày: [{'BẬT' if cfg.enabled else 'TẮT'}] (Enter để bật/tắt)",
+                    f"Daily auto-schedule: [{'ON' if cfg.enabled else 'OFF'}] (Enter to toggle)",
                     "toggle_enabled",
                 ),
-                Choice(f"Giờ chạy hằng ngày: [{cfg.target_time}]", "target_time"),
-                Choice(f"Độ lệch ngẫu nhiên: [±{cfg.jitter_minutes} phút]", "jitter"),
+                Choice(f"Daily target time: [{cfg.target_time}]", "target_time"),
+                Choice(f"Random jitter window: [±{cfg.jitter_minutes} min]", "jitter"),
                 Choice(
-                    f"Thời gian nghỉ giữa mỗi người: [{cfg.min_delay_sec} - {cfg.max_delay_sec} giây]",
+                    f"Delay between contacts: [{cfg.min_delay_sec} - {cfg.max_delay_sec} sec]",
                     "delays",
                 ),
                 Choice(
-                    f"Chế độ Dry-run mặc định: [{'BẬT' if cfg.dry_run else 'TẮT'}]",
+                    f"Default Dry-run mode: [{'ON' if cfg.dry_run else 'OFF'}]",
                     "toggle_dry",
                 ),
                 Choice(
-                    f"Tránh lặp lại câu vừa gửi: [{'BẬT' if cfg.avoid_repeat_last else 'TẮT'}]",
+                    f"Avoid repeating last sent message: [{'ON' if cfg.avoid_repeat_last else 'OFF'}]",
                     "toggle_repeat",
                 ),
                 Choice(
-                    f"Mã PIN / Mật khẩu mở khóa máy: [{'Đã đặt (••••)' if cfg.unlock_pin else 'Chưa đặt (chỉ vuốt mở)'}]",
+                    f"Screen unlock PIN / Password: [{'Set (••••)' if cfg.unlock_pin else 'Not set (swipe only)'}]",
                     "unlock_pin",
                 ),
                 Choice(
-                    f"Tự tắt/khóa màn hình sau khi gửi xong: [{'BẬT' if cfg.auto_lock_after_run else 'TẮT'}]",
+                    f"Auto-lock screen after run: [{'ON' if cfg.auto_lock_after_run else 'OFF'}]",
                     "toggle_auto_lock",
                 ),
                 Choice(
-                    f"Serial / IP thiết bị: [{cfg.device_serial or 'Tự động máy đầu tiên'}]",
+                    f"Device serial / Wi-Fi IP: [{cfg.device_serial or 'Auto-select first device'}]",
                     "serial",
                 ),
-                Choice("🔓 Kiểm tra bật & mở khóa màn hình ngay", "test_unlock"),
-                Choice("🔌 Kết nối ADB qua Wi-Fi (nhập ip:port)", "wifi_adb"),
-                Choice("🧪 Dump UI XML hiện tại từ TikTok (Debug)", "dump_xml"),
+                Choice("Test wake & unlock screen now", "test_unlock"),
+                Choice("Connect Wi-Fi ADB (ip:port)", "wifi_adb"),
+                Choice("Dump current TikTok UI XML (Debug)", "dump_xml"),
             ]
-            choice = self.prompts.select("Cài đặt lịch chạy & thiết bị:", choices=choices)
+            choice = self.prompts.select("Schedule, Unlock & ADB Settings:", choices=choices)
             if choice is None or choice == "back":
                 break
             if choice == "toggle_enabled":
@@ -351,22 +351,22 @@ class SimpleTerminalMenu:
                 self.storage.save_schedule(cfg)
             elif choice == "unlock_pin":
                 pin = self.prompts.password(
-                    "Nhập mã PIN/mật khẩu mở khóa điện thoại (để trống rồi Enter để xóa PIN):"
+                    "Enter phone lockscreen PIN/password (leave empty and press Enter to clear):"
                 )
                 if pin is not None:
                     cfg.unlock_pin = pin.strip()
                     self.storage.save_schedule(cfg)
-                    status_msg = "Đã lưu mã PIN mở khóa." if cfg.unlock_pin else "Đã xóa mã PIN (chỉ vuốt mở)."
+                    status_msg = "Unlock PIN saved." if cfg.unlock_pin else "Unlock PIN cleared (swipe only)."
                     self.console.print(f"[green]{status_msg}[/green]")
             elif choice == "test_unlock":
                 try:
                     self.bot.test_unlock(cb=lambda m: self.console.print(f"  {m}"))
-                    self.console.print("[green]Kiểm tra mở khóa thành công![/green]")
+                    self.console.print("[green]Unlock test succeeded![/green]")
                 except Exception as exc:
-                    self.console.print(f"[red]Lỗi mở khóa: {exc}[/red]")
+                    self.console.print(f"[red]Unlock error: {exc}[/red]")
                 self.prompts.pause()
             elif choice == "target_time":
-                val = self.prompts.text("Nhập giờ chạy (HH:MM, ví dụ 20:00):", default=cfg.target_time)
+                val = self.prompts.text("Enter target time (HH:MM, e.g. 20:00):", default=cfg.target_time)
                 if val:
                     try:
                         parse_target_hm(val)
@@ -376,27 +376,27 @@ class SimpleTerminalMenu:
                         self.console.print(f"[red]{exc}[/red]")
                         self.prompts.pause()
             elif choice == "jitter":
-                val = self.prompts.text("Nhập độ lệch ± phút (ví dụ 20):", default=str(cfg.jitter_minutes))
+                val = self.prompts.text("Enter random jitter ± minutes (e.g. 20):", default=str(cfg.jitter_minutes))
                 if val and val.strip().isdigit():
                     cfg.jitter_minutes = int(val.strip())
                     self.storage.save_schedule(cfg)
             elif choice == "delays":
-                d1 = self.prompts.text("Delay tối thiểu (giây):", default=str(cfg.min_delay_sec))
-                d2 = self.prompts.text("Delay tối đa (giây):", default=str(cfg.max_delay_sec))
+                d1 = self.prompts.text("Minimum delay (seconds):", default=str(cfg.min_delay_sec))
+                d2 = self.prompts.text("Maximum delay (seconds):", default=str(cfg.max_delay_sec))
                 if d1 and d2 and d1.strip().isdigit() and d2.strip().isdigit():
                     cfg.min_delay_sec = max(1, int(d1.strip()))
                     cfg.max_delay_sec = max(cfg.min_delay_sec, int(d2.strip()))
                     self.storage.save_schedule(cfg)
             elif choice == "serial":
                 val = self.prompts.text(
-                    "Nhập serial hoặc IP:Port (để trống = tự chọn thiết bị đầu tiên):",
+                    "Enter ADB serial or IP:Port (leave blank for first connected device):",
                     default=cfg.device_serial,
                 )
                 if val is not None:
                     cfg.device_serial = val.strip()
                     self.storage.save_schedule(cfg)
             elif choice == "wifi_adb":
-                addr = self.prompts.text("Nhập IP:Port của điện thoại (vd 192.168.1.25:5555):")
+                addr = self.prompts.text("Enter phone IP:Port (e.g. 192.168.1.25:5555):")
                 if addr and addr.strip():
                     try:
                         out = connect_wifi_adb(addr.strip())
@@ -404,31 +404,31 @@ class SimpleTerminalMenu:
                         cfg.device_serial = addr.strip()
                         self.storage.save_schedule(cfg)
                     except Exception as exc:
-                        self.console.print(f"[red]Lỗi Wi-Fi ADB: {exc}[/red]")
+                        self.console.print(f"[red]Wi-Fi ADB error: {exc}[/red]")
                     self.prompts.pause()
             elif choice == "dump_xml":
                 try:
                     path = self.bot.dump_debug_xml()
-                    self.console.print(f"[green]Đã lưu UI XML tại: {path}[/green]")
+                    self.console.print(f"[green]Saved UI XML snapshot to: {path}[/green]")
                 except Exception as exc:
-                    self.console.print(f"[red]Lỗi dump XML: {exc}[/red]")
+                    self.console.print(f"[red]XML dump error: {exc}[/red]")
                 self.prompts.pause()
 
     def _handle_run_batch(self, dry_run: bool) -> None:
         if not dry_run:
             selected = self.storage.list_contacts(selected_only=True)
             if not selected:
-                self.console.print("[yellow]Chưa chọn người nhận nào.[/yellow]")
+                self.console.print("[yellow]No contacts selected.[/yellow]")
                 self.prompts.pause()
                 return
             if not self.prompts.confirm(
-                f"Xác nhận GỬI THẬT tin nhắn giữ chuỗi cho {len(selected)} người?",
+                f"Confirm sending LIVE streak messages to {len(selected)} contacts?",
                 default=False,
             ):
                 return
 
-        label = "CHẠY THỬ (DRY-RUN)" if dry_run else "GỬI THẬT"
-        self.console.print(f"\n[bold cyan]=== Bắt đầu phiên {label} ===[/bold cyan]")
+        label = "DRY-RUN" if dry_run else "LIVE SEND"
+        self.console.print(f"\n[bold cyan]=== Starting {label} batch ===[/bold cyan]")
         try:
             self.bot.run_streak_batch(
                 dry_run=dry_run,
@@ -436,16 +436,16 @@ class SimpleTerminalMenu:
                 cb=lambda msg: self.console.print(f"  {msg}"),
             )
         except Exception as exc:
-            self.console.print(f"[red]Lỗi: {exc}[/red]")
+            self.console.print(f"[red]Error: {exc}[/red]")
         self.prompts.pause()
 
     def _handle_view_logs(self) -> None:
         logs = self.storage.list_logs(limit=25)
-        table = Table(title="Nhật ký 25 hoạt động gần nhất")
-        table.add_column("Thời gian", style="dim")
-        table.add_column("Người nhận", style="cyan")
-        table.add_column("Trạng thái", style="bold")
-        table.add_column("Nội dung / Ghi chú")
+        table = Table(title="Recent 25 Activity Logs")
+        table.add_column("Timestamp", style="dim")
+        table.add_column("Contact", style="cyan")
+        table.add_column("Status", style="bold")
+        table.add_column("Message / Detail")
 
         for log in logs:
             detail = log.message if log.message else log.detail
@@ -460,7 +460,7 @@ class SimpleTerminalMenu:
         cfg = self.storage.get_schedule()
         if not cfg.enabled:
             if self.prompts.confirm(
-                "Lịch tự động đang TẮT. Bạn có muốn BẬT lịch tự động rồi chạy ngầm ngay không?",
+                "Daily auto-schedule is currently OFF. Enable it and start the 24/7 daemon now?",
                 default=True,
             ):
                 cfg.enabled = True
@@ -473,9 +473,9 @@ class SimpleTerminalMenu:
         )
         next_at = scheduler.refresh_schedule()
         self.console.print(
-            f"\n[green]Đang chạy ngầm 24/7. Lần chạy kế tiếp: {next_at}. Nhấn Ctrl+C để quay lại.[/green]"
+            f"\n[green]Running 24/7 daemon. Next run: {next_at}. Press Ctrl+C to stop.[/green]"
         )
         try:
             asyncio.run(scheduler.run_forever(poll_seconds=15.0))
         except KeyboardInterrupt:
-            self.console.print("\n[yellow]Đã dừng chế độ chạy ngầm.[/yellow]")
+            self.console.print("\n[yellow]Daemon stopped.[/yellow]")

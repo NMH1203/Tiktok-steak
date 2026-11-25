@@ -1,35 +1,35 @@
 # TikTok Streak Auto-Messenger (Android + Terminal Menu)
 
-Công cụ cá nhân chạy trên **máy server phụ** (Windows/Linux) để điều khiển **điện thoại Android** qua ADB (`uiautomator2`), tự động nhắn tin giữ chuỗi trên ứng dụng TikTok hằng ngày và quản lý hoàn toàn bằng menu **phím mũi tên (`↑`/`↓`) + `Enter`** trên Terminal.
+A personal automation tool designed to run on a **secondary server/PC** (Windows/Linux) to control an **Android phone** over ADB (`uiautomator2`), keeping daily TikTok messaging streaks alive via a simple **Up/Down (`↑`/`↓`) + `Enter`** Terminal Menu.
 
 ---
 
-## Tính năng chính
+## Key Features
 
-1. **Quét danh sách hội thoại từ TikTok Inbox:** Tự động mở TikTok -> tab *Hộp thư (Inbox)* -> cuộn danh sách để nhận diện tên hiển thị, tin nhắn gần nhất và badge chuỗi `🔥` (tự lọc bỏ các dòng thông báo hệ thống).
-2. **Chọn người giữ chuỗi bằng `↑`/`↓` + `Enter`:** Bấm `Enter` vào tên từng người để bật/tắt `[✓]` / `[ ]` ngay tại chỗ, hoặc thêm tên thủ công.
-3. **Kho câu nhắn random tiếng Việt:** Thêm, sửa, bật/tắt, xóa các mẫu câu tiếng Việt có dấu + emoji; hỗ trợ biến `{name}` để tự chèn tên người nhận và tránh lặp lại câu vừa gửi.
-4. **Tự bật & mở khóa màn hình + tự khóa lại:**
-   - Hỗ trợ tự đánh thức màn hình khi tắt, mở khóa kiểu **Vuốt (Swipe / None)** hoặc tự nhập **Mã PIN / Mật khẩu** do bạn cấu hình sẵn trong menu.
-   - Tùy chọn tự tắt/khóa màn hình lại sau khi hoàn tất phiên gửi.
-   - *(Lưu ý: Android không hỗ trợ mở khóa từ ADB bằng Hình vẽ Pattern hoặc Sinh trắc học; với máy phụ nên dùng kiểu Vuốt hoặc Mã PIN).*
-5. **Tự động đóng thông báo/popup chen ngang:** Tự nhận diện và bấm tắt các hộp thoại gợi ý (nhập số điện thoại, đồng bộ danh bạ, bật thông báo, cập nhật app, quảng cáo...) để tiếp tục luồng gửi tin.
-6. **Cơ chế an toàn tài khoản:**
-   - Tùy chọn giờ chạy hằng ngày kèm độ lệch ngẫu nhiên (`jitter_minutes`) và khoảng nghỉ ngẫu nhiên giữa mỗi người.
-   - Chế độ **Dry-run** (mở chat kiểm tra giao diện nhưng không bấm gửi) để test an toàn.
-   - **Dừng khẩn cấp ngay lập tức** nếu gặp màn hình CAPTCHA/xác minh bảo mật hoặc màn hình yêu cầu đăng nhập lại/OTP.
-7. **Chế độ chạy ngầm (`--daemon`):** Chạy 24/7 không cần mở giao diện menu trên máy server phụ.
+1. **TikTok Inbox Contact Scanner:** Automatically launches TikTok, opens the *Inbox* tab, and scrolls to detect conversation display names, last message previews, and `🔥` streak badges (filtering out system notification rows).
+2. **Simple Terminal Contact Selection (`↑`/`↓` + `Enter`):** Press `Enter` on any contact to toggle `[✓]` / `[ ]`, or add contacts manually.
+3. **Randomizable Message Templates:** Create, edit, enable/disable, or delete message templates (Unicode & emoji supported), with `{name}` placeholder substitution and anti-repeat protection.
+4. **Auto Wake, Unlock & Re-lock:**
+   - Wakes the phone screen automatically when turned off, dismisses **Swipe** locks, or enters your configured **PIN / Password** to unlock.
+   - Optionally turns off and locks the phone screen again after finishing the batch.
+   - *(Note: Android does not allow ADB to unlock Pattern or Biometric-only locks; use Swipe/None or PIN/Password on your dedicated device).*
+5. **Auto-Dismiss Blocking Popups:** Automatically detects and closes interrupting in-app prompts/dialogs (add phone number, sync contacts, enable notifications, app update prompts, promo overlays) so the task continues uninterrupted.
+6. **Account Safety Guards:**
+   - Daily schedule window with randomized jitter (`± minutes`) and randomized delays between contacts.
+   - **Dry-run mode** to verify chat inputs without tapping Send.
+   - **Emergency stop** on CAPTCHA/security verification or login/OTP screens.
+7. **Headless Daemon Mode (`--daemon`):** Runs 24/7 unattended on your secondary server.
 
 ---
 
-## Yêu cầu & Cài đặt
+## Requirements & Setup
 
-### 1. Chuẩn bị trên điện thoại Android
-- Bật **Tùy chọn nhà phát triển (Developer Options)** -> bật **Gỡ lỗi USB (USB Debugging)** (hoặc **Wireless Debugging** nếu kết nối qua Wi-Fi cùng mạng LAN).
-- Đăng nhập sẵn tài khoản TikTok trên máy.
-- Đặt khóa màn hình dạng **Không khóa / Vuốt**, hoặc **Mã PIN / Mật khẩu** (nếu muốn dùng tính năng tự nhập PIN mở khóa).
+### 1. Android Phone Preparation
+- Enable **Developer Options** -> enable **USB Debugging** (or **Wireless Debugging** over local Wi-Fi).
+- Sign in to your TikTok account on the phone.
+- Set screen lock to **None / Swipe**, or **PIN / Password** (if using auto-PIN unlock).
 
-### 2. Cài đặt trên máy server phụ
+### 2. Secondary Server Setup
 
 **Windows (PowerShell):**
 ```powershell
@@ -45,72 +45,72 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-> **Lưu ý về `adb`:** Thư viện `adbutils` đã tích hợp sẵn file thực thi `adb` bên trong `.venv`, nên bạn có thể cắm USB hoặc nối Wi-Fi ADB trực tiếp mà không cần cài thêm Android Studio.
+> **Note on `adb`:** `adbutils` bundles the `adb` binary inside `.venv`, so USB and Wi-Fi ADB connections work out of the box without installing Android Studio.
 
 ---
 
-## Hướng dẫn sử dụng
+## Usage
 
-### Mở Menu Terminal (`↑` / `↓` + `Enter`)
+### Launch the Interactive Terminal Menu (`↑` / `↓` + `Enter`)
 ```powershell
 # Windows
 .\.venv\Scripts\tiktok-streak.exe
 
-# Hoặc chạy qua module Python (Windows/Linux)
+# Or via Python module (Windows/Linux)
 python -m tiktok_streak.main
 ```
 
-Các mục chính trong menu:
-1. **Quét danh sách người từ TikTok Inbox** — kết nối điện thoại và quét danh sách chat.
-2. **Chọn người giữ chuỗi** — dùng `↑`/`↓` + `Enter` để tick chọn người cần nhắn hằng ngày.
-3. **Viết & quản lý câu nhắn random** — soạn kho câu tiếng Việt/emoji, hỗ trợ `{name}`.
-4. **Cài đặt giờ chạy & thiết bị ADB** — bật lịch tự động, chỉnh giờ chạy, độ lệch `± phút`, delay, Dry-run, **nhập Mã PIN mở khóa màn hình**, bật/tắt tự khóa lại sau khi chạy, test mở khóa ngay, nối Wi-Fi ADB (`ip:port`), và **Dump UI XML** để debug.
-5. **Chạy thử ngay (Dry-run)** — kiểm tra luồng thao tác mà không bấm gửi thật.
-6. **Chạy gửi thật ngay** — gửi ngay 1 lượt cho danh sách đã chọn (tự bỏ qua người đã gửi trong ngày).
-7. **Xem nhật ký gần đây** — kiểm tra lịch sử gửi, popup đã tắt, hoặc lỗi.
-8. **Bật chạy ngầm tự động (Daemon 24/7)** — treo máy chờ đến khung giờ hằng ngày.
+Menu options:
+1. **Scan contacts from TikTok Inbox** — connects to the Android phone and scans Inbox conversations.
+2. **Select streak contacts** — use `↑`/`↓` + `Enter` to toggle daily recipients.
+3. **Write & manage random messages** — manage randomizable templates supporting `{name}`.
+4. **Schedule, unlock PIN & ADB settings** — configure daily run time, jitter, delays, Dry-run, **Screen unlock PIN/password**, auto-lock after run, test screen unlock, Wi-Fi ADB (`ip:port`), and **Dump UI XML** for debugging.
+5. **Run Dry-run now** — test opening chats without sending messages.
+6. **Send streak messages now** — execute one batch immediately (skips contacts already sent today).
+7. **View recent logs** — inspect sent messages, dismissed popups, and errors.
+8. **Start 24/7 background daemon** — keep running until the scheduled daily window.
 
-### Chạy trực tiếp từ dòng lệnh (CLI)
+### Direct CLI Commands
 ```powershell
-# Chạy ngầm 24/7 theo cấu hình đã lưu trong data/tiktok_streak.db
+# Run headless 24/7 daemon using saved configuration in data/tiktok_streak.db
 tiktok-streak --daemon
 
-# Chạy thử 1 lượt ngay rồi thoát
+# Run a single Dry-run batch and exit
 tiktok-streak --run-now --dry-run
 
-# Chạy gửi thật 1 lượt ngay rồi thoát
+# Run a single live batch and exit
 tiktok-streak --run-now
 ```
 
 ---
 
-## Cấu trúc mã nguồn
+## Project Structure
 
 ```text
 ├── pyproject.toml
 ├── README.md
 ├── src/tiktok_streak/
-│   ├── main.py         # Entrypoint CLI (Menu / --daemon / --run-now)
-│   ├── menu.py         # Giao diện Menu Terminal điều khiển bằng ↑/↓ và Enter
-│   ├── models.py       # Dataclass cấu hình, người nhận, mẫu câu, nhật ký
-│   ├── storage.py      # Lưu trữ SQLite (data/tiktok_streak.db)
-│   ├── adb_client.py   # Kết nối ADB/uiautomator2, mở/khóa màn hình, gõ tiếng Việt
-│   ├── xml_parser.py   # Phân tích UI XML TikTok, nhận diện popup, CAPTCHA, đăng nhập
-│   ├── tiktok_bot.py   # Điều phối quét Inbox, tắt popup, gửi tin nhắn giữ chuỗi
-│   └── scheduler.py    # Bộ lập lịch hằng ngày kèm jitter ngẫu nhiên
-└── tests/              # Unit test (pytest) với FakeDriver & XML mẫu
+│   ├── main.py         # CLI entrypoint (Menu / --daemon / --run-now)
+│   ├── menu.py         # Up/Down + Enter terminal menu
+│   ├── models.py       # Dataclasses for contacts, templates, schedule, logs
+│   ├── storage.py      # SQLite persistence (data/tiktok_streak.db)
+│   ├── adb_client.py   # ADB/uiautomator2 wrapper, auto-unlock/lock, Unicode input
+│   ├── xml_parser.py   # TikTok UI XML parser, popup/CAPTCHA/login detection
+│   ├── tiktok_bot.py   # Inbox scanning, popup dismissal, streak messaging orchestration
+│   └── scheduler.py    # Daily scheduler with randomized jitter
+└── tests/              # pytest unit tests with FakeDriver & sample XMLs
 ```
 
 ---
 
-## Kiểm thử & Debug khi TikTok đổi giao diện
+## Testing & UI Debugging
 
-Chạy toàn bộ unit test:
+Run all unit tests:
 ```powershell
 pytest -v
 ```
 
-Nếu phiên bản TikTok trên máy bạn thay đổi bố cục khiến bot không tìm thấy danh sách hội thoại hoặc nút gửi:
-1. Mở màn hình TikTok cần kiểm tra trên điện thoại.
-2. Vào mục **4. Cài đặt giờ chạy & thiết bị ADB** -> chọn **🧪 Dump UI XML hiện tại từ TikTok (Debug)**.
-3. File XML sẽ được lưu trong thư mục `debug_dumps/` để bạn kiểm tra lại `text` / `content-desc` / `bounds` và cập nhật trong `src/tiktok_streak/xml_parser.py`.
+If a TikTok app update changes Inbox/Chat layouts:
+1. Open the target TikTok screen on the phone.
+2. Go to **4. Schedule, unlock PIN & ADB settings** -> **Dump current TikTok UI XML (Debug)**.
+3. Inspect the saved XML file under `debug_dumps/` and adjust selectors in `src/tiktok_streak/xml_parser.py`.

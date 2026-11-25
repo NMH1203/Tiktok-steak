@@ -17,10 +17,10 @@ from tiktok_streak.models import (
 )
 
 DEFAULT_TEMPLATES = [
-    "Giữ chuỗi nè {name} 🔥",
-    "Hello {name}, điểm danh giữ chuỗi hôm nay nhé 👋",
-    "Chúc {name} một ngày tốt lành nha ✨",
-    "Nhắn nhẹ giữ chuỗi với {name} 😄",
+    "Keeping our streak alive {name} 🔥",
+    "Hey {name}, daily streak check-in! 👋",
+    "Hope you're having a great day, {name} ✨",
+    "Quick hello to keep the streak going, {name} 😄",
 ]
 
 
@@ -150,7 +150,7 @@ class Storage:
         """Add or update a contact manually by display name."""
         name = display_name.strip()
         if not name:
-            raise ValueError("Tên người nhận không được để trống.")
+            raise ValueError("Contact display name cannot be empty.")
         now = _now_iso()
         with self._lock:
             self._conn.execute(
@@ -245,7 +245,7 @@ class Storage:
         """Insert a new randomizable message template."""
         cleaned = content.strip()
         if not cleaned:
-            raise ValueError("Nội dung câu nhắn không được để trống.")
+            raise ValueError("Message template content cannot be empty.")
         now = _now_iso()
         with self._lock:
             cur = self._conn.execute(
@@ -269,7 +269,7 @@ class Storage:
                 return
             new_content = row["content"] if content is None else content.strip()
             if not new_content:
-                raise ValueError("Nội dung câu nhắn không được để trống.")
+                raise ValueError("Message template content cannot be empty.")
             new_enabled = row["enabled"] if enabled is None else int(enabled)
             self._conn.execute(
                 "UPDATE templates SET content = ?, enabled = ? WHERE id = ?",
